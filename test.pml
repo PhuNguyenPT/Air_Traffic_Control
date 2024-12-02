@@ -1,51 +1,66 @@
-// Channel definitions
-chan request_landing = [10] of {int};      // Airplane request landing
-chan request_takeoff = [10] of {int};      // Airplane request takeoff
-chan request_parking = [10] of {int};      // Airplane request parking
+#define HANGAR_SIZE 3
 
-chan reply_landing = [10] of {int};        // Tower response to landing
-chan reply_takeoff = [10] of {int};        // Tower response to takeoff
-chan reply_parking = [10] of {int};        // Tower response to parking
+chan hangar = [HANGAR_SIZE] of {int};  // Hangar channel
+
+// Channel definitions
+chan c_request_landing = [10] of {int};      // Airplane request landing
+chan c_request_takeoff = [10] of {int};      // Airplane request takeoff
+chan c_request_parking = [10] of {int};      // Airplane request parking
+
+chan c_reply_landing = [10] of {int};        // Tower response to landing
+chan c_reply_takeoff = [10] of {int};        // Tower response to takeoff
+chan c_reply_parking = [10] of {int};        // Tower response to parking
 
 // Runway availability (0 = free, 1 = occupied)
-byte runway_status = 0;  // 0 means free, 1 means occupied
-
-// Timer simulation variable
-byte timer = 0;  // Timer to simulate runway usage time
+bool runway_occupied = false;  // 0 means free, 1 means occupied
 
 // Plane process
 proctype Plane(int id; bool isLanding) {
+    int req_landing, req_takeoff, req_parking, rep_landing, rep_takeoff, rep_parking;
+    int plane_timer = 1;  // Set a timer to simulate runway usage time (you can adjust this)
+    bool isParking = isLanding;  // Not parking by default
+
     // Plane requests landing or takeoff
     if
-    :: isLanding -> request_landing!id;       // Request landing
-    :: else -> request_takeoff!id;             // Request takeoff
+        :: isLanding -> c_request_landing!id;       // Request landing
+        :: else -> c_request_takeoff!id;       // Request takeoff
     fi;
 
     // Wait for permission from the tower
     if
-    :: isLanding -> reply_landing?id;         // Wait for landing permission
-    :: else -> reply_takeoff?id;               // Wait for takeoff permission
+        :: isLanding -> c_reply_landing??id; rep_landing = id         // Wait for landing permission
+        :: else -> c_reply_takeoff??rep_takeoff; rep_takeoff = id     // Wait for takeoff permission
     fi;
 
-    // Simulate runway usage (runway occupied)
-    runway_status = 1;
-    timer = 1;  // Set a timer to simulate runway usage time (you can adjust this)
-    printf("Plane %d is using the runway\n", id);
-    
-    // Simulate usage for a short time
     do
-    :: timer == 1 -> skip;  // Wait for the "runway time" to expire
-    od;
-    printf("Plane %d has finished using the runway\n", id);
+        :: rep_landing == id || rep_takeoff == id  -> 
+            runway_occupied = true;
+            printf("Plane %d is using the runway\n", id);
+            
+            // Simulate usage for a short time
+            do
+            :: plane_timer > 0 -> plane_timer--; printf("Time counts down 1s ...");  // Simulate runway usage
+            :: else -> break;  // Wait for the "runway time" to expire
+            od;
+            printf("Plane %d has finished using the runway\n", id);
+            
+            runway_occupied = 0;  // Runway becomes free
+            printf("Plane %d has left the runway\n", id);
 
-    // Send request for parking after using the runway
-    request_parking!id;
-    
-    // Wait for parking permission
-    reply_parking?id;
-    printf("Plane %d has parked\n", id);
-    
-    runway_status = 0;  // Runway becomes free
+            c_request_parking!id;  // Request parking
+            break;
+    od;
+
+    // Wait for permission to park
+    do
+        :: len(hangar) > 0 -> 
+            hangar!id;
+            printf("Plane %d has parked\n", id);
+            break;
+        :: len(hangar) == HANGAR_SIZE -> 
+            printf("Hangar is full, plane %d is waiting\n", id);
+            skip; 
+    od;
 }
 
 // Tower process
@@ -53,27 +68,33 @@ proctype ControlTower() {
     int plane_id;
 
     do
-    :: request_landing?plane_id ->
-        if
-        :: runway_status == 0 ->  // If runway is free, grant landing
-            reply_landing!plane_id;
-        :: else ->  // Else, deny landing request
-            printf("Tower: Runway busy, plane %d cannot land\n", plane_id);
-            reply_landing!(-1);  // -1 indicates a denied request
-        fi;
-        
-    :: request_takeoff?plane_id ->
-        if
-        :: runway_status == 0 ->  // If runway is free, grant takeoff
-            reply_takeoff!plane_id;
-        :: else ->  // Else, deny takeoff request
-            printf("Tower: Runway busy, plane %d cannot take off\n", plane_id);
-            reply_takeoff!(-1);  // -1 indicates a denied request
-        fi;
+        :: c_request_landing?<plane_id> ->
+            if
+            :: runway_occupied == false ->  // If runway is free, grant landing
+                printf("Tower: Clearance granted for plane %d to land\n", plane_id);
+                c_request_landing?plane_id;  // Clear the id in the channel
+                printf("Tower: Reply to plane %d landing\n", plane_id);
+                c_reply_landing!plane_id;
+            :: else ->  // Else, deny landing request
+                printf("Tower: Runway busy, plane %d cannot land\n", plane_id);
+                skip;  
+            fi;
+            
+        :: c_request_takeoff?<plane_id> ->
+            if
+            :: runway_occupied == 0 ->  // If runway is free, grant takeoff
+                printf("Tower: Clearance granted for plane %d to take off\n", plane_id);
+                c_request_takeoff?plane_id;  // Clear the id in the channel
+                printf("Tower: Reply to plane %d takeoff\n", plane_id);
+                c_reply_takeoff!plane_id;
+            :: else ->  // Else, deny takeoff request
+                printf("Tower: Runway busy, plane %d cannot take off\n", plane_id);
+                skip;
+            fi;
 
-    :: request_parking?plane_id -> 
-        printf("Tower: Plane %d is parking\n", plane_id);
-        reply_parking!plane_id;  // Grant parking
+        :: c_request_parking?plane_id -> 
+            printf("Tower: Plane %d is parking\n", plane_id);
+            c_reply_parking!plane_id;  // Grant parking
     od;
 }
 
