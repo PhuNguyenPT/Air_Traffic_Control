@@ -11,15 +11,16 @@ An **Air Traffic Control (ATC) Simulation** models the coordination of multiple 
 4. **Queues:** Separate queues for planes waiting to land and take off.
 
 ## Requirements:
-- 10 Airplanes
-- 1 Tower Control
-- 1 Runway with timer control
-- 1 Plane request landing channel
-- 1 Plane request takeoff channel
-- 1 Plane request parking channel
-- 1 Tower reply landing channel
-- 1 Tower reply takeoff channel
-- 1 Tower reply parking channel
+- 10 Airplanes.
+- 1 Tower Control.
+- 1 Runway with timer control.
+- 1 Plane request landing channel.
+- 1 Plane request takeoff channel.
+- 1 Plane request parking channel.
+- 1 Tower reply landing channel.
+- 1 Tower reply takeoff channel.
+- 1 Tower reply parking channel.
+- When waiting to park, plane does not occupy runwway.
 
 ## PROMELA Model Outline:
 
