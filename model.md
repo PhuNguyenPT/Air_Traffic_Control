@@ -18,7 +18,7 @@ An **Air Traffic Control (ATC) Simulation** models the coordination of multiple 
 - 1 Plane request takeoff channel
 - 1 Plane request parking channel
 - 1 Tower reply landing channel
-- 1 Tower reply takoff channel
+- 1 Tower reply takeoff channel
 - 1 Tower reply parking channel
 
 ## PROMELA Model Outline:
