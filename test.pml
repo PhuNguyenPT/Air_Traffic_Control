@@ -24,14 +24,14 @@ proctype Plane(int id; bool isLanding) {
 
     // Plane requests landing or takeoff
     if
-        :: isLanding -> printf("Plane %d request to landing\n", id);c_request_landing!id;       // Request landing
-        :: else -> printf("Plane %d request to takeoff\n", id);c_request_takeoff!id;       // Request takeoff
+        :: isLanding -> printf("Plane %d request to landing\n", id); c_request_landing!id;       // Request landing
+        :: else -> printf("Plane %d request to takeoff\n", id); c_request_takeoff!id;       // Request takeoff
     fi;
 
     // Wait for permission from the tower
     if
         :: isLanding -> c_reply_landing??id; rep_landing = id         // Wait for landing permission
-        :: else -> c_reply_takeoff??rep_takeoff; rep_takeoff = id     // Wait for takeoff permission
+        :: else -> c_reply_takeoff??id; rep_takeoff = id     // Wait for takeoff permission
     fi;
 
     do
