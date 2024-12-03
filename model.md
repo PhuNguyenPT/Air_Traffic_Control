@@ -20,7 +20,7 @@ An **Air Traffic Control (ATC) Simulation** models the coordination of multiple 
 - 1 Tower reply landing channel.
 - 1 Tower reply takeoff channel.
 - 1 Tower reply parking channel.
-- When waiting to park, plane does not occupy runwway.
+- When waiting to park, plane does not occupy runway.
 
 ## PROMELA Model Outline:
 
