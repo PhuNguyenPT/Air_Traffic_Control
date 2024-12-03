@@ -35,7 +35,24 @@ proctype Plane(int id; bool isLanding) {
     fi;
 
     do
-        :: (rep_landing == id || rep_takeoff == id) && !runway_occupied == true  -> 
+        :: rep_takeoff == id && !runway_occupied == true ->
+            runway_occupied = true;
+            printf("Plane %d is using the runway for (%d - landing)/ (%d - takeoff)\n", id, (rep_landing == id), (rep_takeoff == id));
+            
+            // Simulate usage for a short time
+            do
+            :: plane_timer > 0 -> 
+            printf("Plane %d: Timer %d (s) counts down 1s ...\n", id,plane_timer);  // Simulate runway usage
+            plane_timer--; 
+            :: else -> break;  // Wait for the "runway time" to expire
+            od;
+            printf("Plane %d has finished using the runway\n", id);
+            
+            printf("Plane %d has left the runway\n", id);
+            runway_occupied = 0;  // Runway becomes free
+            break;
+
+        :: rep_landing == id && !runway_occupied == true  -> 
             runway_occupied = true;
             printf("Plane %d is using the runway for (%d - landing)/ (%d - takeoff)\n", id, (rep_landing == id), (rep_takeoff == id));
             
@@ -51,19 +68,24 @@ proctype Plane(int id; bool isLanding) {
             printf("Plane %d has left the runway\n", id);
             runway_occupied = 0;  // Runway becomes free
 
+            
             c_request_parking!id;  // Request parking
             break;
     od;
 
     // Wait for permission to park
     do
-        :: len(hangar) > 0 -> 
+        :: len(hangar) >= 0 && isParking -> 
+            printf("Plane %d: Has parked\n", id);
             hangar!id;
-            printf("Plane %d has parked\n", id);
+            
+            printf("Plane %d: Clear queue parking request\n", id);
+            c_reply_parking??id;
             break;
-        :: len(hangar) == HANGAR_SIZE -> 
+        :: len(hangar) == HANGAR_SIZE && isParking -> 
             printf("Hangar is full, plane %d is waiting\n", id);
             skip; 
+        :: else -> break;
     od;
 }
 
@@ -97,7 +119,7 @@ proctype ControlTower() {
             fi;
 
         :: c_request_parking?plane_id -> 
-            printf("Tower: Plane %d is parking\n", plane_id);
+            printf("Tower: Reply to Plane %d parking\n", plane_id);
             c_reply_parking!plane_id;  // Grant parking
     od;
 }
@@ -112,11 +134,11 @@ init {
         run Plane(2, false);  // Plane 2 wants to take off
         run Plane(3, true);   // Plane 3 wants to land
         run Plane(4, false);  // Plane 4 wants to take off
-        run Plane(5, true);   // Plane 5 wants to land
-        run Plane(6, false);  // Plane 6 wants to take off
-        run Plane(7, true);   // Plane 7 wants to land
-        run Plane(8, false);  // Plane 8 wants to take off
-        run Plane(9, true);   // Plane 9 wants to land
-        run Plane(10, false); // Plane 10 wants to take off
+        // run Plane(5, true);   // Plane 5 wants to land
+        // run Plane(6, false);  // Plane 6 wants to take off
+        // run Plane(7, true);   // Plane 7 wants to land
+        // run Plane(8, false);  // Plane 8 wants to take off
+        // run Plane(9, true);   // Plane 9 wants to land
+        // run Plane(10, false); // Plane 10 wants to take off
     }
 }
