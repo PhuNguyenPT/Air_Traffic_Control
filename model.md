@@ -21,6 +21,8 @@ An **Air Traffic Control (ATC) Simulation** models the coordination of multiple 
 - 1 Tower reply takeoff channel.
 - 1 Tower reply parking channel.
 - When waiting to park, plane does not occupy runway.
+- Emergency situation: Emergency plane needs to take top priority: planes using the runway for landing/takeoff needs to leave immediately, leaving the runway for the emergency plane.
+- Planes that landed successfully has to sequentially take off.
 
 ## PROMELA Model Outline:
 
