@@ -17,13 +17,15 @@ bool runway_occupied = false;  // 0 means free, 1 means occupied
 // Plane process
 proctype Plane(int id; bool isLanding) {
     int req_landing, req_takeoff, req_parking, rep_landing, rep_takeoff, rep_parking;
-    int plane_timer = 1;  // Set a timer to simulate runway usage time (you can adjust this)
+    int plane_timer = 0;
+    select(plane_timer: 1..10);  // Set a timer to simulate runway usage time 
+    printf("Plane time: %d\n",  plane_timer);
     bool isParking = isLanding;  // Not parking by default
 
     // Plane requests landing or takeoff
     if
-        :: isLanding -> c_request_landing!id;       // Request landing
-        :: else -> c_request_takeoff!id;       // Request takeoff
+        :: isLanding -> printf("Plane %d request to landing\n", id);c_request_landing!id;       // Request landing
+        :: else -> printf("Plane %d request to takeoff\n", id);c_request_takeoff!id;       // Request takeoff
     fi;
 
     // Wait for permission from the tower
