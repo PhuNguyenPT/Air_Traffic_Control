@@ -19,7 +19,7 @@ proctype Plane(int id; bool isLanding) {
     int req_landing, req_takeoff, req_parking, rep_landing, rep_takeoff, rep_parking;
     int plane_timer = 0;
     select(plane_timer: 1..10);  // Set a timer to simulate runway usage time 
-    printf("Plane time: %d\n",  plane_timer);
+    printf("Plane %d: timer: %d (s)\n",id,plane_timer);
     bool isParking = isLanding;  // Not parking by default
 
     // Plane requests landing or takeoff
@@ -35,19 +35,21 @@ proctype Plane(int id; bool isLanding) {
     fi;
 
     do
-        :: rep_landing == id || rep_takeoff == id  -> 
+        :: (rep_landing == id || rep_takeoff == id) && !runway_occupied == true  -> 
             runway_occupied = true;
-            printf("Plane %d is using the runway\n", id);
+            printf("Plane %d is using the runway for (%d - landing)/ (%d - takeoff)\n", id, (rep_landing == id), (rep_takeoff == id));
             
             // Simulate usage for a short time
             do
-            :: plane_timer > 0 -> plane_timer--; printf("Plane %d: Timer %d (s) counts down 1s ...\n", id,plane_timer);  // Simulate runway usage
+            :: plane_timer > 0 -> 
+            printf("Plane %d: Timer %d (s) counts down 1s ...\n", id,plane_timer);  // Simulate runway usage
+            plane_timer--; 
             :: else -> break;  // Wait for the "runway time" to expire
             od;
             printf("Plane %d has finished using the runway\n", id);
             
-            runway_occupied = 0;  // Runway becomes free
             printf("Plane %d has left the runway\n", id);
+            runway_occupied = 0;  // Runway becomes free
 
             c_request_parking!id;  // Request parking
             break;
@@ -73,7 +75,7 @@ proctype ControlTower() {
         :: c_request_landing?<plane_id> ->
             if
             :: runway_occupied == false ->  // If runway is free, grant landing
-                printf("Tower: Clearance granted for plane %d to land\n", plane_id);
+                printf("Tower: Clear queue request for plane %d to land\n", plane_id);
                 c_request_landing?plane_id;  // Clear the id in the channel
                 printf("Tower: Reply to plane %d landing\n", plane_id);
                 c_reply_landing!plane_id;
@@ -85,7 +87,7 @@ proctype ControlTower() {
         :: c_request_takeoff?<plane_id> ->
             if
             :: runway_occupied == 0 ->  // If runway is free, grant takeoff
-                printf("Tower: Clearance granted for plane %d to take off\n", plane_id);
+                printf("Tower: Clear queue request for plane %d to take off\n", plane_id);
                 c_request_takeoff?plane_id;  // Clear the id in the channel
                 printf("Tower: Reply to plane %d takeoff\n", plane_id);
                 c_reply_takeoff!plane_id;
