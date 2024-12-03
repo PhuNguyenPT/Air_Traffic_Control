@@ -41,7 +41,7 @@ proctype Plane(int id; bool isLanding) {
             
             // Simulate usage for a short time
             do
-            :: plane_timer > 0 -> plane_timer--; printf("Time counts down 1s ...");  // Simulate runway usage
+            :: plane_timer > 0 -> plane_timer--; printf("Plane %d: Timer %d (s) counts down 1s ...\n", id,plane_timer);  // Simulate runway usage
             :: else -> break;  // Wait for the "runway time" to expire
             od;
             printf("Plane %d has finished using the runway\n", id);
