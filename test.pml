@@ -115,7 +115,7 @@ proctype ControlTower() {
         
     :: c_request_takeoff?<plane_id> ->
         if
-        :: runway_occupied == 0 ->  // If runway is free, grant takeoff
+        :: runway_occupied == false ->  // If runway is free, grant takeoff
             run RequestProcess(plane_id, c_request_takeoff, c_reply_takeoff, takeoff);
         :: else ->  // Else, deny takeoff request
             printf("Tower: Runway busy, plane %d cannot take off\n", plane_id);
