@@ -12,8 +12,11 @@ chan c_reply_landing = [10] of {int};        // Tower response to landing
 chan c_reply_takeoff = [10] of {int};        // Tower response to takeoff
 chan c_reply_parking = [10] of {int};        // Tower response to parking
 
+chan c_waiting_parking = [10] of {int};      // Waiting for parking
+
 // Runway availability (0 = free, 1 = occupied)
 bool runway_occupied = false;  // 0 means free, 1 means occupied
+bool parking_occupied = false; // 0 means free, 1 means occupied
 
 proctype RunwayProcess(int id; bool occupied; int rep_landing, rep_takeoff, plane_timer) {
     atomic {
@@ -28,10 +31,26 @@ proctype RunwayProcess(int id; bool occupied; int rep_landing, rep_takeoff, plan
         :: else -> break;  // Wait for the "runway time" to expire
         od;
 
-        printf("Plane %d has finished using the runway\n", id);
+        printf("Plane %d: Has finished using the runway\n", id);
         
-        printf("Plane %d has left the runway\n", id);
+        printf("Plane %d: Has left the runway\n", id);
         runway_occupied = 0;  // Runway becomes free
+
+        if
+            :: rep_landing == id -> c_request_parking!id; printf("Plane %d: Request parking\n", id);  // Request parking
+            :: else skip;
+        fi
+    }
+}
+
+
+proctype SendingRequestProcess(int id; bool isLanding) {
+    atomic {
+        // Plane requests landing or takeoff
+        if
+        :: isLanding -> printf("Plane %d: Request to landing\n", id); c_request_landing!id;  // Request landing
+        :: else -> printf("Plane %d: Request to takeoff\n", id); c_request_takeoff!id;       // Request takeoff
+        fi
     }
 }
 
@@ -39,21 +58,20 @@ proctype RunwayProcess(int id; bool occupied; int rep_landing, rep_takeoff, plan
 proctype Plane(int id; bool isLanding) {
     int req_landing, req_takeoff, req_parking, rep_landing, rep_takeoff, rep_parking;
     int plane_timer = 0;
-    select(plane_timer: 1..10);  // Set a timer to simulate runway usage time 
-    printf("Plane %d: timer: %d (s)\n",id,plane_timer);
     bool isParking = isLanding;  // Not parking by default
 
-    // Plane requests landing or takeoff
-    if
-    :: isLanding -> printf("Plane %d request to landing\n", id); c_request_landing!id;  // Request landing
-    :: else -> printf("Plane %d request to takeoff\n", id); c_request_takeoff!id;       // Request takeoff
-    fi;
+    select(plane_timer: 1..10);  // Set a timer to simulate runway usage time 
+    printf("Plane %d: timer: %d (s)\n",id,plane_timer);
 
-    // Wait for permission from the tower
-    if
-    :: isLanding -> c_reply_landing??id; rep_landing = id  // Wait for landing permission
-    :: else -> c_reply_takeoff??id; rep_takeoff = id       // Wait for takeoff permission
-    fi;
+    run SendingRequestProcess(id, isLanding);  // Send request to tower
+
+    atomic {
+        // Wait for permission from the tower
+        if
+        :: isLanding -> c_reply_landing??id; rep_landing = id; printf("Plane %d: Clear queue landing reply\n", id);  // Wait for landing permission
+        :: else -> c_reply_takeoff??id; rep_takeoff = id; printf("Plane %d: Clear queue takeoff reply\n", id)       // Wait for takeoff permission
+        fi;
+    }
     
     do
     :: rep_takeoff == id && !runway_occupied == true ->
@@ -62,40 +80,71 @@ proctype Plane(int id; bool isLanding) {
 
     :: rep_landing == id && !runway_occupied == true  -> 
         run RunwayProcess(rep_landing, runway_occupied, rep_landing, rep_takeoff, plane_timer);
-        c_request_parking!id;  // Request parking
         break;
     od;
+
+    atomic {
+        if
+        :: isParking -> c_reply_parking??id; rep_parking = id; printf("Plane %d: Clear queue parking reply of number %d\n", id, rep_parking); // Wait for parking permission
+        :: else -> skip;
+        fi
+    }
 
     // Wait for permission to park
     do
-    :: len(hangar) >= 0 && isParking -> 
-        printf("Plane %d: Has parked\n", id);
-        hangar!id;
-        
-        printf("Plane %d: Clear queue parking request\n", id);
-        c_reply_parking??id;
-        break;
-    :: len(hangar) == HANGAR_SIZE && isParking -> 
-        printf("Hangar is full, plane %d is waiting\n", id);
-        skip; 
-    :: else -> break;
+    :: rep_parking == id && !parking_occupied == true -> 
+        atomic{
+        if
+        :: len(hangar) < HANGAR_SIZE -> // If hangar is not full, park
+            parking_occupied = true;
+            printf("Plane %d: Take parking lock\n", id);
+
+            printf("Plane %d: Hangar size: %d\n", id, len(hangar));
+            hangar!id;
+            printf("Plane %d: Has parked. Increase hangar size: %d\n", id, len(hangar));
+            parking_occupied = false;
+            break;
+
+        :: else -> // If hangar is full, wait
+            parking_occupied = true;
+            printf("Hangar is full, plane %d is waiting\n", id);
+
+            c_waiting_parking!id;
+            printf("Plane %d: Send parking request to waiting list\n", id);
+            parking_occupied = false;
+            break; 
+        fi
+        }
+
     od;
 }
 
-proctype RequestProcess(int plane_id; chan c_request; chan c_reply; mtype:e_operation op) {   
+proctype HandleRequestProcess(int plane_id; chan c_request; chan c_reply; mtype:e_operation op) {   
     atomic {
         if
-        :: op == landing -> 
-            printf("Tower: Clear queue request for plane %d landing\n", plane_id);
-            c_request?plane_id;  // Clear the id in the channel
-            printf("Tower: Reply to plane %d landing\n", plane_id);
-            c_reply!plane_id;
-        :: op == takeoff -> 
-            printf("Tower: Clear queue request for plane %d takeoff\n", plane_id);
-            c_request?plane_id;  // Clear the id in the channel
-            printf("Tower: Reply to plane %d takeoff\n", plane_id);
-            c_reply!plane_id;
-        fi;
+        :: runway_occupied == false ->  // If runway is free, grant landing
+            if
+            :: op == landing -> 
+ 
+                c_request?plane_id;  // Clear the id in the channel
+                printf("Tower: Clear queue request for plane %d landing\n", plane_id);
+
+                c_reply!plane_id;
+                printf("Tower: Reply to plane %d landing\n", plane_id);
+
+                skip;
+            :: op == takeoff -> 
+                c_request?plane_id;  // Clear the id in the channel
+                printf("Tower: Clear queue request for plane %d takeoff\n", plane_id);
+
+                c_reply!plane_id;
+                printf("Tower: Reply to plane %d takeoff\n", plane_id);
+                skip;
+            fi;
+        :: else ->  
+            printf("Tower: Runway busy, plane %d cannot (%d - landing)/(%d - takeoff)\n", plane_id, (op == landing), (op == takeoff));
+            skip;  
+        fi        
     }
 }
 
@@ -105,22 +154,11 @@ proctype ControlTower() {
 
     do
     :: c_request_landing?<plane_id> ->
-        if
-        :: runway_occupied == false ->  // If runway is free, grant landing
-            run RequestProcess(plane_id, c_request_landing, c_reply_landing, landing);
-        :: else ->  // Else, deny landing request
-            printf("Tower: Runway busy, plane %d cannot land\n", plane_id);
-            skip;  
-        fi;
+        run HandleRequestProcess(plane_id, c_request_landing, c_reply_landing, landing);
         
     :: c_request_takeoff?<plane_id> ->
-        if
-        :: runway_occupied == false ->  // If runway is free, grant takeoff
-            run RequestProcess(plane_id, c_request_takeoff, c_reply_takeoff, takeoff);
-        :: else ->  // Else, deny takeoff request
-            printf("Tower: Runway busy, plane %d cannot take off\n", plane_id);
-            skip;
-        fi;
+        run HandleRequestProcess(plane_id, c_request_takeoff, c_reply_takeoff, takeoff);
+
 
     :: c_request_parking?plane_id -> 
         printf("Tower: Reply to Plane %d parking\n", plane_id);
