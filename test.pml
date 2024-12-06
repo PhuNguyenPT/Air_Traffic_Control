@@ -157,6 +157,13 @@ proctype TowerOperationRequestHandler(int plane_id; chan c_request; chan c_reply
     }
 }
 
+proctype TowerParkingRequestHandler(int plane_id) {
+    atomic {
+        printf("Tower: Reply to Plane %d parking\n", plane_id);
+        c_reply_parking!plane_id;  // Grant parking
+    }
+}
+
 // Tower process
 proctype ControlTower() {
     int plane_id;
@@ -170,8 +177,7 @@ proctype ControlTower() {
 
 
     :: c_request_parking?plane_id -> 
-        printf("Tower: Reply to Plane %d parking\n", plane_id);
-        c_reply_parking!plane_id;  // Grant parking
+        run TowerParkingRequestHandler(plane_id);
     od;
 }
 
