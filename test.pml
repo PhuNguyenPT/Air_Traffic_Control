@@ -1,22 +1,22 @@
 #define HANGAR_SIZE 3
-mtype:e_operation = {takeoff, landing, parking};  // Operation type
-mtype:e_status = {plane_request, tower_reply, plane_waiting};  // Status type
+mtype:e_operation = {takeoff, landing, parking, runway};  // Operation type
+mtype:e_status = {plane_request, tower_reply, plane_waiting, lock};  // Status type
 
-chan hangar = [HANGAR_SIZE] of {int};  // Hangar channel
+chan hangar = [HANGAR_SIZE] of {int};  // Hangar channel: plane_id
 
 // Channel definitions
-chan c_request_landing = [10] of {int};      // Airplane request landing
-chan c_request_takeoff = [10] of {int};      // Airplane request takeoff
-chan c_request_parking = [10] of {int};      // Airplane request parking
+chan c_request_landing = [10] of {int};      // Airplane request landing: plane_id
+chan c_request_takeoff = [10] of {int};      // Airplane request takeoff: plane_id
+chan c_request_parking = [10] of {int};      // Airplane request parking: plane_id
 
-chan c_reply_landing = [10] of {int};        // Tower response to landing
-chan c_reply_takeoff = [10] of {int};        // Tower response to takeoff
-chan c_reply_parking = [10] of {int};        // Tower response to parking
+chan c_reply_landing = [10] of {int};        // Tower response to landing: plane_id
+chan c_reply_takeoff = [10] of {int};        // Tower response to takeoff: plane_id
+chan c_reply_parking = [10] of {int};        // Tower response to parking: plane_id
 
-chan c_waiting_parking = [10] of {int};      // Waiting for parking
+chan c_waiting_parking = [10] of {int};      // Waiting for parking: plane_id
 
-chan c_plane_log = [100] of {int, mtype:e_operation, mtype:e_status};            // Plane log
-chan c_tower_log = [100] of {int, mtype:e_operation, mtype:e_status};               // Tower log
+chan c_plane_log = [100] of {int, mtype:e_operation, mtype:e_status}; // Plane log: plane_id, operation, status
+chan c_tower_log = [100] of {int, mtype:e_operation, mtype:e_status}; // Tower log: plane_id, operation, status
 
 // Runway availability (0 = free, 1 = occupied)
 bool runway_occupied = false;  // 0 means free, 1 means occupied
@@ -25,6 +25,8 @@ bool parking_occupied = false; // 0 means free, 1 means occupied
 proctype RunwayProcedures(int id, rep_landing, plane_timer; mtype:e_operation op) {
     atomic {
         runway_occupied = true;
+        c_plane_log!id, runway, lock; // Log the runway lock
+
         if 
         :: (op == landing) 
             printf("Plane %d is using the runway for landing\n", id);
@@ -55,13 +57,21 @@ proctype RunwayProcedures(int id, rep_landing, plane_timer; mtype:e_operation op
     }
 }
 
-
-proctype RequestSubmitHandler(int id; bool isLanding) {
+proctype RequestSubmitHandler(int id; mtype:e_operation op) {
     atomic {
         // Plane requests landing or takeoff
         if
-        :: isLanding -> printf("Plane %d: Request to landing\n", id); c_request_landing!id;  // Request landing
-        :: else -> printf("Plane %d: Request to takeoff\n", id); c_request_takeoff!id;       // Request takeoff
+        :: op == landing -> 
+            c_request_landing!id;  // Request landing
+            printf("Plane %d: Request to landing\n", id); 
+
+            c_plane_log!id, landing, plane_request;  // Log the request
+
+        :: op == takeoff -> 
+            c_request_takeoff!id;  // Request takeoff
+            printf("Plane %d: Request to takeoff\n", id);
+
+            c_plane_log!id, takeoff, plane_request;  // Log the request
         fi
     }
 }
@@ -71,6 +81,7 @@ proctype PlaneParking(int id) {
         if
         :: len(hangar) < HANGAR_SIZE -> // If hangar is not full, park
             parking_occupied = true;
+            c_plane_log!id, parking, lock; // Log the parking lock
             printf("Plane %d: Take parking lock\n", id);
 
             printf("Plane %d: Hangar size: %d\n", id, len(hangar));
@@ -80,10 +91,13 @@ proctype PlaneParking(int id) {
             
         :: else -> // If hangar is full, wait
             parking_occupied = true;
+            c_plane_log!id, parking, lock; // Log the parking lock
             printf("Hangar is full, plane %d is waiting\n", id);
 
             c_waiting_parking!id;
             printf("Plane %d: Send parking request to waiting list\n", id);
+
+            c_plane_log!id, parking, plane_waiting; // Log the waiting status
             parking_occupied = false;
         fi
     }
@@ -113,7 +127,10 @@ proctype RunwayProceduresHandler(bool isLanding; int id, rep_landing, rep_takeof
     atomic {
         // Wait for permission from the tower
         if
-        :: isLanding -> c_reply_landing??id; rep_landing = id; printf("Plane %d: Clear queue landing reply\n", id);  // Wait for landing permission
+        :: isLanding -> 
+            c_reply_landing??id; 
+            rep_landing = id; 
+            printf("Plane %d: Clear queue landing reply\n", id);  // Wait for landing permission
         :: else -> c_reply_takeoff??id; rep_takeoff = id; printf("Plane %d: Clear queue takeoff reply\n", id)       // Wait for takeoff permission
         fi;
 
@@ -137,7 +154,14 @@ proctype Plane(int id; bool isLanding) {
     select(plane_timer: 1..10);  // Set a timer to simulate runway usage time 
     printf("Plane %d: timer: %d (s)\n",id,plane_timer);
 
-    run RequestSubmitHandler(id, isLanding);  // Send request to tower
+    atomic {
+        if
+        :: isLanding -> 
+            run RequestSubmitHandler(id, landing);  // Send request to tower
+        :: else -> 
+            run RequestSubmitHandler(id, takeoff);  // Send request to tower
+        fi
+    }
 
     run RunwayProceduresHandler(isLanding, id, rep_landing, rep_takeoff, plane_timer);  // Handle runway request
     
@@ -151,6 +175,9 @@ proctype TowerLandingRequest(int plane_id; chan c_request; chan c_reply) {
 
         c_reply!plane_id; // Grant landing
         printf("Tower: Reply to plane %d landing\n", plane_id);
+
+        c_tower_log!plane_id, landing, tower_reply; // Log the tower landing reply
+        printf("Tower: Log plane %d landing reply\n", plane_id);
     }
 }
 
@@ -161,6 +188,9 @@ proctype TowerTakeoffRequest(int plane_id; chan c_request; chan c_reply) {
 
         c_reply!plane_id; // Grant takeoff
         printf("Tower: Reply to plane %d takeoff\n", plane_id);
+
+        c_tower_log!plane_id, takeoff, tower_reply; // Log the tower takeoff reply
+        printf("Tower: Log plane %d takeoff reply\n", plane_id);
     }
 }
 
@@ -171,11 +201,9 @@ proctype TowerOperationRequestHandler(int plane_id; chan c_request; chan c_reply
             if
             :: op == landing -> 
                 run TowerLandingRequest(plane_id, c_request, c_reply);
-
                 skip;
             :: op == takeoff -> 
                 run TowerTakeoffRequest(plane_id, c_request, c_reply);
-
                 skip;
             fi;
         :: else ->  
@@ -194,8 +222,11 @@ proctype TowerOperationRequestHandler(int plane_id; chan c_request; chan c_reply
 
 proctype TowerParkingRequestHandler(int plane_id) {
     atomic {
-        printf("Tower: Reply to Plane %d parking\n", plane_id);
         c_reply_parking!plane_id;  // Grant parking
+        printf("Tower: Reply to Plane %d parking\n", plane_id);
+
+        c_tower_log!plane_id, parking, tower_reply; // Log the tower parking reply
+        printf("Tower: Log plane %d parking reply\n", plane_id);
     }
 }
 
