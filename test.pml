@@ -1,5 +1,5 @@
 #define HANGAR_SIZE 3
-mtype:e_operation = {takeoff, landing, parking};  // Operation type
+mtype:e_operation = {takeoff, landing, parking, runway};  // Operation type
 mtype:e_status = {plane_request, tower_reply, plane_waiting};  // Status type
 
 chan hangar = [HANGAR_SIZE] of {int};  // Hangar channel
@@ -55,13 +55,35 @@ proctype RunwayProcedures(int id, rep_landing, plane_timer; mtype:e_operation op
     }
 }
 
+proctype PlaneLogHandler(int id; mtype:e_operation op; mtype:e_status status) {
+    atomic {
+        c_plane_log!id, op, status;  // Log the plane operation
+        if 
+        :: (op == landing) 
+            printf("Plane %d: Log landing request\n", id);
+            skip;
+        :: (op == takeoff)
+            printf("Plane %d: Log takeoff request\n", id);
+            skip;
+        fi
+    }
+}
 
 proctype RequestSubmitHandler(int id; bool isLanding) {
     atomic {
         // Plane requests landing or takeoff
         if
-        :: isLanding -> printf("Plane %d: Request to landing\n", id); c_request_landing!id;  // Request landing
-        :: else -> printf("Plane %d: Request to takeoff\n", id); c_request_takeoff!id;       // Request takeoff
+        :: isLanding -> 
+            c_request_landing!id;  // Request landing
+            printf("Plane %d: Request to landing\n", id); 
+
+            run PlaneLogHandler(id, landing, plane_request);  // Log the request
+
+        :: else -> 
+            c_request_takeoff!id;  // Request takeoff
+            printf("Plane %d: Request to takeoff\n", id);
+
+            run PlaneLogHandler(id, takeoff, plane_request);  // Log the request
         fi
     }
 }
