@@ -5,25 +5,25 @@ mtype:e_status = {plane_request, tower_reply, plane_waiting, lock, finish};  // 
 chan hangar = [HANGAR_SIZE] of {int};  // Hangar channel: plane_id
 
 // Channel definitions
-chan c_request_landing = [10] of {int};      // Airplane request landing: plane_id
-chan c_request_takeoff = [10] of {int};      // Airplane request takeoff: plane_id
+chan c_request_operation = [10] of {int, mtype:e_operation};      // Airplane request landing, takeoff: plane_id
 chan c_request_parking = [10] of {int};      // Airplane request parking: plane_id
 chan c_request_emergency = [10] of {int, mtype:e_operation};    // Airplane request emergency landing: plane_id
 
-chan c_reply_landing = [10] of {int};        // Tower response to landing: plane_id
-chan c_reply_takeoff = [10] of {int};        // Tower response to takeoff: plane_id
+chan c_reply_operation = [10] of {int, mtype:e_operation};        // Tower response to landing, takeoff: plane_id
 chan c_reply_parking = [10] of {int};        // Tower response to parking: plane_id
 chan c_reply_emergency = [10] of {int, mtype:e_operation};      // Tower response to emergency landing: plane_id
 
 chan c_waiting_parking = [10] of {int};      // Waiting for parking: plane_id
 
 chan c_plane_log = [100] of {int, mtype:e_operation, mtype:e_status}; // Plane log: plane_id, operation, status
-chan c_plane_request_log = [100] of {int, mtype:e_operation, mtype:e_status}; // Request log: plane_id, operation, status
-chan c_plane_parking_log = [100] of {int, mtype:e_operation, mtype:e_status}; // Parking log: plane_id, operation, status
-chan c_plane_runway_log = [100] of {int, mtype:e_operation, mtype:e_status}; // Runway log: plane_id, operation, status
+chan c_plane_request_log = [100] of {int, mtype:e_operation}; // Request log: plane_id, operation, status
+chan c_plane_parking_log = [100] of {int, mtype:e_status}; // Parking log: plane_id, operation, status
+chan c_plane_runway_log = [100] of {int, mtype:e_operation}; // Runway log: plane_id, operation, status
+chan c_plane_parking_request_log = [100] of {int}; // Parking request log: plane_id, operation, status
 
 chan c_tower_log = [100] of {int, mtype:e_operation, mtype:e_status}; // Tower log: plane_id, operation, status
-chan c_tower_reply_log = [100] of {int, mtype:e_operation, mtype:e_status}; // Reply log: plane_id, operation, status
+chan c_tower_reply_log = [100] of {int, mtype:e_operation}; // Reply log: plane_id, operation, status
+chan c_tower_parking_reply_log = [100] of {int}; // Parking log: plane_id, operation, status
 
 chan c_emergency_log = [100] of {int, mtype:e_operation, mtype:e_status}; // Emergency log: plane_id, operation, status
 
@@ -31,12 +31,68 @@ chan c_emergency_log = [100] of {int, mtype:e_operation, mtype:e_status}; // Eme
 bool runway_occupied = false;  // 0 means free, 1 means occupied
 bool parking_occupied = false; // 0 means free, 1 means occupied
 bool emergency_occupied = false; // 0 means free, 1 means occupied
+bool reply_channel_occupied = false; // 0 means free, 1 means occupied
+
+inline RequestSubmit(id, op) {
+    atomic {
+        // Plane requests landing or takeoff
+        if
+        :: op == emergency_landing -> 
+            c_request_emergency!id, emergency_landing;  // Request emergency landing
+            printf("Plane %d: Request to emergency landing\n", id);
+
+            c_plane_request_log!id, emergency_landing;  // Log the request
+            c_plane_log!id, emergency_landing, plane_request;  // Log the request
+            c_emergency_log!id, emergency_landing, plane_request;  // Log the request
+            printf("Plane %d: Log emergency landing request\n", id);
+            skip;
+
+        :: op == emergency_takeoff ->
+            c_request_emergency!id, emergency_takeoff;  // Request emergency takeoff
+            printf("Plane %d: Request to emergency takeoff\n", id);
+
+            c_plane_request_log!id, emergency_takeoff;  // Log the request
+            c_plane_log!id, emergency_takeoff, plane_request;  // Log the request
+            c_emergency_log!id, emergency_takeoff, plane_request;  // Log the request
+            printf("Plane %d: Log emergency takeoff request\n", id);
+            skip;
+
+        :: op == landing -> 
+            c_request_operation!id, landing;  // Request landing
+            printf("Plane %d: Request to land\n", id); 
+
+            c_plane_request_log!id, landing;  // Log the request
+            c_plane_log!id, landing, plane_request;  // Log the request
+            printf("Plane %d: Log landing request\n", id);
+            skip;
+
+        :: op == takeoff -> 
+            c_request_operation!id, takeoff;  // Request takeoff
+            printf("Plane %d: Request to takeoff\n", id);
+
+            c_plane_request_log!id, takeoff;  // Log the request
+            c_plane_log!id, takeoff, plane_request;  // Log the request
+            printf("Plane %d: Log takeoff request\n", id);
+            skip;
+
+        :: op == parking ->
+            c_request_parking!id; 
+            printf("Plane %d: Request parking after %e\n", id, op);  // Request parking
+
+            c_plane_request_log!id, parking;  // Log the request
+            c_plane_log!id, parking, plane_request;  // Log the request
+            c_plane_parking_request_log!id;  // Log the request
+            printf("Plane %d: Log parking request\n", id);
+            skip;
+        fi;
+    }
+}
 
 inline RunwayProcedures(id, plane_timer, op) {
     atomic {
         runway_occupied = true;
         
-        c_plane_runway_log!id, op, lock; // Log the runway lock
+        c_plane_runway_log!id, op; // Log the runway lock
         c_plane_log!id, runway, lock; // Log the runway lock
         printf("Plane %d: Log runway lock\n", id);
         if
@@ -71,54 +127,10 @@ inline RunwayProcedures(id, plane_timer, op) {
         printf("Plane %d: Has left the runway\n", id);
 
         if
-            :: op == landing || op == emergency_landing -> c_request_parking!id; printf("Plane %d: Request parking after %e\n", id, op);  // Request parking
+            :: op == landing || op == emergency_landing -> 
+                RequestSubmit(id, parking);  // Request parking after landing
             :: else -> skip;
         fi
-    }
-}
-
-inline RequestSubmit(id, op) {
-    atomic {
-        // Plane requests landing or takeoff
-        if
-        :: op == emergency_landing -> 
-            c_request_emergency!id, emergency_landing;  // Request emergency landing
-            printf("Plane %d: Request to emergency landing\n", id);
-
-            c_plane_request_log!id, emergency_landing, plane_request;  // Log the request
-            c_plane_log!id, emergency_landing, plane_request;  // Log the request
-            c_emergency_log!id, emergency_landing, plane_request;  // Log the request
-            printf("Plane %d: Log emergency landing request\n", id);
-            skip;
-
-        :: op == emergency_takeoff ->
-            c_request_emergency!id, emergency_takeoff;  // Request emergency takeoff
-            printf("Plane %d: Request to emergency takeoff\n", id);
-
-            c_plane_request_log!id, emergency_takeoff, plane_request;  // Log the request
-            c_plane_log!id, emergency_takeoff, plane_request;  // Log the request
-            c_emergency_log!id, emergency_takeoff, plane_request;  // Log the request
-            printf("Plane %d: Log emergency takeoff request\n", id);
-            skip;
-
-        :: op == landing -> 
-            c_request_landing!id;  // Request landing
-            printf("Plane %d: Request to land\n", id); 
-
-            c_plane_request_log!id, landing, plane_request;  // Log the request
-            c_plane_log!id, landing, plane_request;  // Log the request
-            printf("Plane %d: Log landing request\n", id);
-            skip;
-
-        :: op == takeoff -> 
-            c_request_takeoff!id;  // Request takeoff
-            printf("Plane %d: Request to takeoff\n", id);
-
-            c_plane_request_log!id, takeoff, plane_request;  // Log the request
-            c_plane_log!id, takeoff, plane_request;  // Log the request
-            printf("Plane %d: Log takeoff request\n", id);
-            skip;
-        fi;
     }
 }
 
@@ -155,7 +167,7 @@ inline PlaneParking(id) {
             printf("Plane %d: Hangar size: %d\n", id, len(hangar));
             hangar!id;
 
-            c_plane_parking_log!id, parking, plane_request; // Log the parking request
+            c_plane_parking_log!id, finish; // Log the parking request
             printf("Plane %d: Has parked. Increase hangar size: %d\n", id, len(hangar));
             parking_occupied = false;
             
@@ -168,7 +180,7 @@ inline PlaneParking(id) {
             printf("Plane %d: Send parking request to waiting list\n", id);
 
             c_plane_log!id, parking, plane_waiting; // Log the waiting status
-            c_plane_parking_log!id, parking, plane_waiting; // Log the waiting status
+            c_plane_parking_log!id, plane_waiting; // Log the waiting status
             parking_occupied = false;
         fi
     }
@@ -216,7 +228,8 @@ proctype RunwayProceduresHandler(bool isLanding, isEmergency; int id, plane_time
                 skip;
             }
         :: !isLanding && isEmergency -> // If takeoff and emergency, wait for emergency takeoff permission
-            atomic { c_reply_emergency?<temp_id, temp_op>; 
+            atomic { 
+                c_reply_emergency?<temp_id, temp_op>; 
                 if
                 :: id == temp_id && temp_op == emergency_takeoff -> 
                     c_reply_emergency?id, emergency_takeoff; 
@@ -232,31 +245,35 @@ proctype RunwayProceduresHandler(bool isLanding, isEmergency; int id, plane_time
 
         :: isLanding && !isEmergency -> // If landing and not emergency, wait for landing permission
             atomic { 
-                c_reply_landing?<temp_id>;
+                reply_channel_occupied = true;
+                c_reply_operation?<temp_id, temp_op>;
                 if 
                 :: temp_id == id -> 
-                    c_reply_landing?id; 
+                    c_reply_operation?temp_id, temp_op; 
                     printf("Plane %d: Clear queue landing reply\n", id); 
                     break;
                 :: temp_id != id -> 
                     printf("Plane %d: Waiting for landing reply\n", id); 
                     skip;
                 fi;
+                reply_channel_occupied = false;
                 skip;
             }
 
         :: !isLanding && !isEmergency -> // If takeoff and not emergency, wait for takeoff permission
             atomic{
-                c_reply_takeoff?<temp_id>;
+                reply_channel_occupied = true;
+                c_reply_operation?<temp_id, temp_op>;
                 if 
                 :: temp_id == id -> 
-                    c_reply_takeoff?id; 
+                    c_reply_operation?temp_id, temp_op; 
                     printf("Plane %d: Clear queue takeoff reply\n", id); 
                     break;
                 :: temp_id != id ->
                     printf("Plane %d: Waiting for takeoff reply\n", id); 
                     skip;
                 fi;
+                reply_channel_occupied = false;
                 skip;
             }
         od;
@@ -319,7 +336,7 @@ inline TowerLandingRequest(plane_id, c_request, c_reply) {
         c_reply!plane_id; // Grant landing
         printf("Tower: Reply to plane %d landing\n", plane_id);
 
-        c_tower_reply_log!plane_id, landing, tower_reply; // Log the tower landing reply
+        c_tower_reply_log!plane_id, landing; // Log the tower landing reply
         c_tower_log!plane_id, landing, tower_reply; // Log the tower landing reply
         printf("Tower: Log plane %d landing reply\n", plane_id);
     }
@@ -333,7 +350,7 @@ inline TowerTakeoffRequest(plane_id, c_request, c_reply) {
         c_reply!plane_id; // Grant takeoff
         printf("Tower: Reply to plane %d takeoff\n", plane_id);
 
-        c_tower_reply_log!plane_id, takeoff, tower_reply; // Log the tower takeoff reply
+        c_tower_reply_log!plane_id, takeoff; // Log the tower takeoff reply
         c_tower_log!plane_id, takeoff, tower_reply; // Log the tower takeoff reply
         printf("Tower: Log plane %d takeoff reply\n", plane_id);
     }
@@ -347,7 +364,7 @@ inline TowerEmergencyRequest(plane_id, c_request, c_reply, op) {
         c_reply!plane_id,op; // Grant emergency
         printf("Tower: Reply to plane %d %e\n", plane_id, op);
 
-        c_tower_reply_log!plane_id, op, tower_reply; // Log the tower emergency reply
+        c_tower_reply_log!plane_id, op; // Log the tower emergency reply
         c_tower_log!plane_id, op, tower_reply; // Log the tower emergency reply
         c_emergency_log!plane_id, op, tower_reply; // Log the emergency reply
         printf("Tower: Log plane %d %e reply\n", plane_id, op);
@@ -403,6 +420,7 @@ inline TowerParkingRequestHandler(plane_id) {
         printf("Tower: Reply to Plane %d parking\n", plane_id);
 
         c_tower_log!plane_id, parking, tower_reply; // Log the tower parking reply
+        c_tower_parking_reply_log!plane_id; // Log the tower parking reply
         printf("Tower: Log plane %d parking reply\n", plane_id);
     }
 }
@@ -432,17 +450,23 @@ proctype ControlTower() {
                 run TowerOperationRequestHandler(plane_id, c_request_emergency, c_reply_emergency, emergency_takeoff); // Handle emergency takeoff request
                 skip;
             fi;
+            plane_id = -1;
             skip;
         }
     :: len(c_request_emergency) <= 0 && runway_occupied == false ->
         atomic {
+            mtype:e_operation temp_op = null;
             if
-            :: c_request_landing?<plane_id> ->
-                run TowerOperationRequestHandler(plane_id, c_request_landing, c_reply_landing, landing); // Handle landing request
-                skip;
-
-            :: c_request_takeoff?<plane_id> ->
-                run TowerOperationRequestHandler(plane_id, c_request_takeoff, c_reply_takeoff, takeoff); // Handle takeoff request
+            :: c_request_operation?<plane_id, temp_op> ->
+                printf("Tower: Check request: plane %d %e\n", plane_id, temp_op);
+                if
+                :: temp_op == landing -> 
+                    run TowerOperationRequestHandler(plane_id, c_request_operation, c_reply_operation, landing); // Handle landing request
+                    skip;
+                :: temp_op == takeoff -> 
+                    run TowerOperationRequestHandler(plane_id, c_request_operation, c_reply_operation, takeoff); // Handle takeoff request
+                    skip;
+                fi;
                 skip;
 
             :: len(c_request_parking) > 0 -> 
@@ -472,6 +496,6 @@ init {
         run Plane(7, isLanding, !isEmergency);   // Plane 7 wants to land, not emergency
         run Plane(8, !isLanding, !isEmergency);  // Plane 8 wants to take off, not emergency
         run Plane(9, isLanding, !isEmergency);   // Plane 9 wants to land, not emergency
-        // run Plane(10, false); // Plane 10 wants to take off
+        run Plane(10, !isLanding, isEmergency); // Plane 10 wants to take off, emergency
     }
 }
