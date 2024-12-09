@@ -24,6 +24,56 @@ An **Air Traffic Control (ATC) Simulation** models the coordination of multiple 
 - Emergency plane needs to take top priority: planes using the runway for landing/takeoff needs to leave immediately, leaving the runway for the emergency plane.
 - Planes that landed successfully has to sequentially take off.
 
+operations
+channels
+flags
+RequestSubmit
+RunwayProcedures
+RequestSubmitHandler
+PlaneParking
+PlaneParkingReplyHandler
+RunwayProceduresHandler
+Plane
+TowerLandingRequest
+TowerTakeoffRequest
+TowerEmergencyRequest
+TowerOperationRequestHandler
+TowerParkingRequestHandler
+ControlTower
+init
+
+init (start simulation)
+
+-> Plane (initialize plane processes)
+
+-> RequestSubmitHandler (consider each case: landing, takeoff, emergency,...)
+
+-> RequestSubmit (planes requesting for landing/takeoff: add “plane ids” to “request channel” for tower, add “plane ids” to logging channels for landing/takeoff)
+
+-> ControlTower (tower sees ids in “request channel”, tower replies to request, )
+
+-> TowerOperationRequestHandler (consider each case)
+
+->TowerLandingRequest/TowerTakeoffRequest/TowerEmergencyRequest (what each case does in more detail, tower adds “plane ids” to “reply channel”)
+
+-> Plane (back to plane, plane runs RunwayProceduresHandler)
+
+-> RunwayProceduresHandler (consider each case, log each case)
+
+-> RunwayProcedures (what each case does in more detail: “plane using runway…”, “plane timer countdown…”)
+
+-> RequestSubmit (planes that finished landing now requests for parking: “add “plane ids” to “request parking channel” for tower”, add “plane ids” to logging channels for parking)
+
+-> ControlTower (go back to Tower, tower sees ids in “request parking channel”, tower replies to request)
+
+-> TowerParkingRequestHandler (tower adds “plane ids” to “reply parking channel”)
+
+-> Plane (back to plane, plane runs PlaneParkingReplyHandler)
+
+-> PlaneParkingReplyHandler (plane checks ids in “reply parking channel”)
+
+-> PlaneParking (consider each case: hanger full, not full. Log plane data into log channels)
+
 ## PROMELA Model Outline:
 
 1. **Processes:**
