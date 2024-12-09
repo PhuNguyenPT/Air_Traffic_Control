@@ -1,4 +1,5 @@
 #define HANGAR_SIZE 3
+#define AIRPLANE_COUNT 10
 typedef Airplane {int id, timer; bool isLanding, isEmergency;};  // Airplane structure
 
 mtype:e_operation = {takeoff, landing, parking, runway, emergency_takeoff, emergency_landing, emergency, null};  // Operation type
@@ -348,6 +349,7 @@ proctype Plane(int id; bool isLanding, isEmergency) {
 
 inline TowerRequest(plane_id, c_request, c_reply, op) {
     atomic {
+        printf("Tower: c_request size: %d for plane %d\n", len(c_request), plane_id);
         c_request?plane_id, op;  // Clear the id in the channel
         printf("Tower: Clear queue request for plane %d takeoff\n", plane_id);
 
@@ -432,24 +434,24 @@ inline TowerParkingRequestHandler(plane_id) {
 // Tower process
 proctype ControlTower() {
     int plane_id = -1;
-    mtype:e_operation op = null;
+    mtype:e_operation temp_op = null;
     do
     :: len(c_request_emergency) > 0 && runway_occupied == false -> 
         atomic{
             runway_occupied = true;
 
-            c_request_emergency?<plane_id, op>; // Emergency landing request
-            printf("Tower: Check emergency request: plane %d %e\n", plane_id, op);
+            c_request_emergency?<plane_id, temp_op>; // Emergency landing request
+            printf("Tower: Check emergency request: plane %d %e\n", plane_id, temp_op);
 
             printf("Tower: Lock runway for emergency\n");
             c_tower_log!plane_id, emergency, lock; // Log the emergency lock
             if 
-            :: op == emergency_landing ->                
+            :: plane_id != -1 && temp_op == emergency_landing ->                
                 printf("Tower: Handle emergency landing request\n");
                 run TowerOperationRequestHandler(plane_id, c_request_emergency, c_reply_emergency, emergency_landing); // Handle emergency landing request
                 skip;
 
-            :: op == emergency_takeoff ->
+            :: plane_id != -1 && temp_op == emergency_takeoff ->
                 printf("Tower: Handle emergency takeoff request\n");
                 run TowerOperationRequestHandler(plane_id, c_request_emergency, c_reply_emergency, emergency_takeoff); // Handle emergency takeoff request
                 skip;
@@ -459,15 +461,15 @@ proctype ControlTower() {
         }
     :: len(c_request_emergency) <= 0 && runway_occupied == false ->
         atomic {
-            mtype:e_operation temp_op = null;
             if
-            :: c_request_operation?<plane_id, temp_op> ->
+            :: len(c_request_operation) > 0->
+                c_request_operation?<plane_id, temp_op>;
                 printf("Tower: Check request: plane %d %e\n", plane_id, temp_op);
                 if
-                :: temp_op == landing -> 
+                :: plane_id != -1 &&temp_op == landing -> 
                     run TowerOperationRequestHandler(plane_id, c_request_operation, c_reply_operation, landing); // Handle landing request
                     skip;
-                :: temp_op == takeoff -> 
+                :: plane_id != -1 && temp_op == takeoff -> 
                     run TowerOperationRequestHandler(plane_id, c_request_operation, c_reply_operation, takeoff); // Handle takeoff request
                     skip;
                 fi;
@@ -479,6 +481,11 @@ proctype ControlTower() {
             fi;
             skip;        
         }
+    :: len(c_request_emergency) <= 0 && len(c_request_operation) <= 0 && len(c_request_parking) <= 0 &&
+    len(c_reply_emergency) <= 0 && len(c_reply_operation) <= 0 && len(c_reply_parking) <= 0 &&
+    len(c_plane_request_log) == AIRPLANE_COUNT && len(c_tower_reply_log) == AIRPLANE_COUNT ->
+        printf("Tower: No requests, replies. Exit\n");
+        break; // If no requests, exit
     od;
 }
 
