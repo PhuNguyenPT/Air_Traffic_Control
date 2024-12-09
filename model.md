@@ -17,6 +17,9 @@ An **Air Traffic Control (ATC) Simulation** models the coordination of multiple 
 - 3 plane operations: landing/takeoff, parking, emergency (landing/takeoff).
 - 1 channel each for Planes to request each operation (3 channels).
 - 1 channel each for Tower to reply to each operation (3 channels).
+- 5 channels for logging plane data: summary, request, parking, runway, parking request.
+- 3 channels for logging tower data: summary, reply, parking reply.
+- 1 channel for logging emergency cases.
 - When waiting to park, plane does not occupy runway resource.
 - Emergency plane needs to take top priority: planes using the runway for landing/takeoff needs to leave immediately, leaving the runway for the emergency plane.
 - Planes that landed successfully has to sequentially take off.
