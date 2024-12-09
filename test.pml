@@ -62,7 +62,7 @@ proctype RunwayProcedures(int id, plane_timer; mtype:e_operation op) {
         :: plane_timer > 0 -> 
             printf("Plane %d: Timer %d (s) counts down 1s ...\n", id, plane_timer);  // Simulate runway usage
             plane_timer--; 
-        :: else -> printf("Plane %d: Finish count down\n", id); break;  // Wait for the "runway time" to expire
+        :: else -> printf("Plane %d: Finish countdown\n", id); break;  // Wait for the "runway time" to expire
         od;
 
         printf("Plane %d: Has finished using the runway\n", id);
