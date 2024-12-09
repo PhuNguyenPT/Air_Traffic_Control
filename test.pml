@@ -462,7 +462,7 @@ init {
 
         // Launch 10 planes with random landing/takeoff requests
         run Plane(1, isLanding, isEmergency);   // Plane 1 wants to land, emergency
-        run Plane(2, !isLanding, isEmergency);  // Plane 2 wants to take off, not emergency
+        run Plane(2, !isLanding, !isEmergency);  // Plane 2 wants to take off, not emergency
         run Plane(3, isLanding, !isEmergency);   // Plane 3 wants to land, not emergency
         run Plane(4, !isLanding, !isEmergency);  // Plane 4 wants to take off, not emergency
         run Plane(5, isLanding, !isEmergency);   // Plane 5 wants to land, not emergency
