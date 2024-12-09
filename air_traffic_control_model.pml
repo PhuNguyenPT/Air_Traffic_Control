@@ -266,6 +266,8 @@ proctype RunwayProceduresHandler(bool isLanding, isEmergency; int id, plane_time
                 :: temp_id == id -> 
                     c_reply_operation?temp_id, temp_op; 
                     printf("Plane %d: Clear queue landing reply\n", id); 
+                    reply_channel_occupied = false;
+
                     break;
                 :: temp_id != id -> 
                     printf("Plane %d: Waiting for landing reply\n", id); 
@@ -283,6 +285,7 @@ proctype RunwayProceduresHandler(bool isLanding, isEmergency; int id, plane_time
                 :: temp_id == id -> 
                     c_reply_operation?temp_id, temp_op; 
                     printf("Plane %d: Clear queue takeoff reply\n", id); 
+                    reply_channel_occupied = false;
                     break;
                 :: temp_id != id ->
                     printf("Plane %d: Waiting for takeoff reply\n", id); 
