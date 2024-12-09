@@ -67,7 +67,7 @@ proctype RunwayProcedures(int id, plane_timer; mtype:e_operation op) {
 
         printf("Plane %d: Has finished using the runway\n", id);
         
-        runway_occupied = 0;  // Runway becomes free
+        runway_occupied = false;  // Runway becomes free
         printf("Plane %d: Has left the runway\n", id);
 
         if
