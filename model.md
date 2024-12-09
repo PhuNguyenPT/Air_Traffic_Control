@@ -13,7 +13,7 @@ An **Air Traffic Control (ATC) Simulation** models the coordination of multiple 
 ## Requirements:
 - 10 Plane processes.
 - 1 Tower Control process.
-- 1 Runway with timer control.
+- 1 Runway shared resource.
 - 1 Plane request landing channel.
 - 1 Plane request takeoff channel.
 - 1 Plane request parking channel.
@@ -21,7 +21,7 @@ An **Air Traffic Control (ATC) Simulation** models the coordination of multiple 
 - 1 Tower reply takeoff channel.
 - 1 Tower reply parking channel.
 - When waiting to park, plane does not occupy runway.
-- Emergency situation: Emergency plane needs to take top priority: planes using the runway for landing/takeoff needs to leave immediately, leaving the runway for the emergency plane.
+- Emergency plane needs to take top priority: planes using the runway for landing/takeoff needs to leave immediately, leaving the runway for the emergency plane.
 - Planes that landed successfully has to sequentially take off.
 
 ## PROMELA Model Outline:
