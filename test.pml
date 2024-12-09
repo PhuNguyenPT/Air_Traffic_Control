@@ -34,6 +34,7 @@ bool runway_occupied = false;  // 0 means free, 1 means occupied
 bool parking_occupied = false; // 0 means free, 1 means occupied
 bool emergency_occupied = false; // 0 means free, 1 means occupied
 bool reply_channel_occupied = false; // 0 means free, 1 means occupied
+bool parking_reply_channel_occupied = false; // 0 means free, 1 means occupied
 
 inline RequestSubmit(id, op) {
     atomic {
@@ -188,24 +189,32 @@ inline PlaneParking(id) {
     }
 }
 
-proctype PlaneParkingReplyHandler(bool isParking; int id, rep_parking) {
-    atomic {
-        if
-        :: isParking -> 
-            c_reply_parking??id; 
-            rep_parking = id; 
-            printf("Plane %d: Clear queue parking reply of number %d\n", id, rep_parking); // Wait for parking permission
-            skip;
-        :: !isParking -> skip;
-        fi
+proctype PlaneParkingReplyHandler(bool isParking; int id) {
+    printf("Plane %d: ParkingReplyHandler\n", id);
+    int temp_id = -1;
+    do
+    :: isParking && parking_reply_channel_occupied == false ->
+        atomic {
+            parking_reply_channel_occupied = true;
+            c_reply_parking?<temp_id>; 
+            parking_reply_channel_occupied = false; 
+            if
+            :: temp_id == id ->
+                c_reply_parking?temp_id;
+                printf("Plane %d: Clear queue parking reply", id); // Clear parking reply
+                PlaneParking(temp_id);
+                break;
 
-        // Wait for permission to park
-        do
-        :: rep_parking == id && !parking_occupied == true -> // If parking is free, park
-            PlaneParking(rep_parking);
-            break;
-        od;
-    }
+            :: temp_id != id -> 
+                printf("Plane %d: Waiting for parking reply", id); // Wait for parking reply
+                skip;
+            fi;
+            skip;
+        }
+    :: isParking && parking_reply_channel_occupied == true -> skip; // If parking reply channel is occupied, wait
+    :: !isParking -> break; // If not parking, exit
+    od;
+    
 }
 
 proctype RunwayProceduresHandler(bool isLanding, isEmergency; int id, plane_timer) {
@@ -331,7 +340,7 @@ proctype Plane(int id; bool isLanding, isEmergency) {
     
     run RunwayProceduresHandler(isLanding, isEmergency, id, plane_timer);  // Handle runway request
     
-    run PlaneParkingReplyHandler(isParking, id, rep_parking);  // Handle parking request
+    run PlaneParkingReplyHandler(isParking, id);  // Handle parking request
 }
 
 inline TowerRequest(plane_id, c_request, c_reply, op) {
