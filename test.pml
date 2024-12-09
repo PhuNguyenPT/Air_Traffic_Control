@@ -32,7 +32,7 @@ bool runway_occupied = false;  // 0 means free, 1 means occupied
 bool parking_occupied = false; // 0 means free, 1 means occupied
 bool emergency_occupied = false; // 0 means free, 1 means occupied
 
-proctype RunwayProcedures(int id, plane_timer; mtype:e_operation op) {
+inline RunwayProcedures(id, plane_timer, op) {
     atomic {
         runway_occupied = true;
         
@@ -77,7 +77,7 @@ proctype RunwayProcedures(int id, plane_timer; mtype:e_operation op) {
     }
 }
 
-proctype RequestSubmit(int id; mtype:e_operation op) {
+inline RequestSubmit(id, op) {
     atomic {
         // Plane requests landing or takeoff
         if
@@ -123,26 +123,28 @@ proctype RequestSubmit(int id; mtype:e_operation op) {
 }
 
 proctype RequestSubmitHandler(bool isLanding, isEmergency; int id) {
-    if
-    :: isLanding && isEmergency -> 
-        run RequestSubmit(id, emergency_landing);  // Send emergency landing request to tower
-        skip;
+    atomic{    
+        if
+        :: isLanding && isEmergency -> 
+            RequestSubmit(id, emergency_landing);  // Send emergency landing request to tower
+            skip;
 
-    :: !isLanding && isEmergency -> 
-        run RequestSubmit(id, emergency_takeoff);  // Send emergency takeoff request to tower
-        skip;
+        :: !isLanding && isEmergency -> 
+            RequestSubmit(id, emergency_takeoff);  // Send emergency takeoff request to tower
+            skip;
 
-    :: isLanding && !isEmergency -> 
-        run RequestSubmit(id, landing);  // Send request to tower
-        skip;
+        :: isLanding && !isEmergency -> 
+            RequestSubmit(id, landing);  // Send request to tower
+            skip;
 
-    :: !isLanding && !isEmergency -> 
-        run RequestSubmit(id, takeoff);  // Send request to tower
-        skip;
-    fi;    
+        :: !isLanding && !isEmergency -> 
+            RequestSubmit(id, takeoff);  // Send request to tower
+            skip;
+        fi; 
+     }  
 }
 
-proctype PlaneParking(int id) {
+inline PlaneParking(id) {
     atomic {
         if
         :: len(hangar) < HANGAR_SIZE -> // If hangar is not full, park
@@ -186,7 +188,7 @@ proctype PlaneParkingReplyHandler(bool isParking; int id, rep_parking) {
         // Wait for permission to park
         do
         :: rep_parking == id && !parking_occupied == true -> // If parking is free, park
-            run PlaneParking(rep_parking);
+            PlaneParking(rep_parking);
             break;
         od;
     }
@@ -265,28 +267,28 @@ proctype RunwayProceduresHandler(bool isLanding, isEmergency; int id, plane_time
             :: temp_id == id && temp_op == emergency_landing && runway_occupied == true -> // If runway is free, land emergency
                 atomic { 
                     printf("Plane %d: RunwayProcedures: %e\n", id, temp_op);
-                    run RunwayProcedures(id, plane_timer, emergency_landing);
+                    RunwayProcedures(id, plane_timer, emergency_landing);
                     break;
                 }
 
             :: temp_id == id && temp_op == emergency_takeoff && runway_occupied == true -> // If runway is free, take off emergency
                 atomic { 
                     printf("Plane %d: RunwayProcedures: %e\n", id, temp_op);
-                    run RunwayProcedures(id, plane_timer, emergency_takeoff);
+                    RunwayProcedures(id, plane_timer, emergency_takeoff);
                     break;
                 }
 
             :: !isLanding && temp_id == id && !runway_occupied == true -> // If runway is free, take off
                 atomic {
                     printf("Plane %d: RunwayProcedures: takeoff\n", id);
-                    run RunwayProcedures(id, plane_timer, takeoff);
+                    RunwayProcedures(id, plane_timer, takeoff);
                     break
                 };
 
             :: isLanding && temp_id == id && !runway_occupied == true  -> // If runway is free, land
                 atomic {
                     printf("Plane %d: RunwayProcedures: landing\n", id);
-                    run RunwayProcedures(id, plane_timer, landing);
+                    RunwayProcedures(id, plane_timer, landing);
                     break;
                 }
             od;
@@ -309,7 +311,7 @@ proctype Plane(int id; bool isLanding, isEmergency) {
     run PlaneParkingReplyHandler(isParking, id, rep_parking);  // Handle parking request
 }
 
-proctype TowerLandingRequest(int plane_id; chan c_request; chan c_reply) {
+inline TowerLandingRequest(plane_id, c_request, c_reply) {
     atomic {
         c_request?plane_id;  // Clear the id in the channel
         printf("Tower: Clear queue request for plane %d landing\n", plane_id);
@@ -323,7 +325,7 @@ proctype TowerLandingRequest(int plane_id; chan c_request; chan c_reply) {
     }
 }
 
-proctype TowerTakeoffRequest(int plane_id; chan c_request; chan c_reply) {
+inline TowerTakeoffRequest(plane_id, c_request, c_reply) {
     atomic {
         c_request?plane_id;  // Clear the id in the channel
         printf("Tower: Clear queue request for plane %d takeoff\n", plane_id);
@@ -337,7 +339,7 @@ proctype TowerTakeoffRequest(int plane_id; chan c_request; chan c_reply) {
     }
 }
 
-proctype TowerEmergencyRequest(int plane_id; chan c_request; chan c_reply; mtype:e_operation op) {
+inline TowerEmergencyRequest(plane_id, c_request, c_reply, op) {
     atomic {
         c_request?plane_id,op;  // Clear the id in the channel
         printf("Tower: Clear queue request for plane %d %e\n", plane_id, op);
@@ -358,11 +360,11 @@ proctype TowerOperationRequestHandler(int plane_id; chan c_request; chan c_reply
         :: runway_occupied == true && (op == emergency_landing || op == emergency_takeoff) -> // If emergency is free, grant emergency
             if 
             :: op == emergency_landing -> 
-                run TowerEmergencyRequest(plane_id, c_request, c_reply, emergency_landing);
+                TowerEmergencyRequest(plane_id, c_request, c_reply, emergency_landing);
                 skip;
 
             :: op == emergency_takeoff ->
-                run TowerEmergencyRequest(plane_id, c_request, c_reply, emergency_takeoff);
+                TowerEmergencyRequest(plane_id, c_request, c_reply, emergency_takeoff);
                 skip;
             fi;
             skip;
@@ -370,10 +372,10 @@ proctype TowerOperationRequestHandler(int plane_id; chan c_request; chan c_reply
         :: runway_occupied == false && (op != emergency_landing && op != emergency_takeoff) && len(c_request_emergency) <= 0 ->  // If runway is free, grant landing
             if
             :: op == landing -> 
-                run TowerLandingRequest(plane_id, c_request, c_reply);
+                TowerLandingRequest(plane_id, c_request, c_reply);
                 skip;
             :: op == takeoff -> 
-                run TowerTakeoffRequest(plane_id, c_request, c_reply);
+                TowerTakeoffRequest(plane_id, c_request, c_reply);
                 skip;
             fi;
             skip;                
@@ -392,7 +394,7 @@ proctype TowerOperationRequestHandler(int plane_id; chan c_request; chan c_reply
     }
 }
 
-proctype TowerParkingRequestHandler(int plane_id) {
+inline TowerParkingRequestHandler(plane_id) {
     atomic {
         c_request_parking?plane_id;  // Clear the id in the channel
         printf("Tower: Clear queue request for plane %d parking\n", plane_id);
@@ -444,7 +446,7 @@ proctype ControlTower() {
                 skip;
 
             :: len(c_request_parking) > 0 -> 
-                run TowerParkingRequestHandler(plane_id); // Handle parking request        
+                TowerParkingRequestHandler(plane_id); // Handle parking request        
                 skip;
             fi;
             skip;        
