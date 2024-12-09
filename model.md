@@ -24,23 +24,7 @@ An **Air Traffic Control (ATC) Simulation** models the coordination of multiple 
 - Emergency plane needs to take top priority: planes using the runway for landing/takeoff needs to leave immediately, leaving the runway for the emergency plane.
 - Planes that landed successfully has to sequentially take off.
 
-operations
-channels
-flags
-RequestSubmit
-RunwayProcedures
-RequestSubmitHandler
-PlaneParking
-PlaneParkingReplyHandler
-RunwayProceduresHandler
-Plane
-TowerLandingRequest
-TowerTakeoffRequest
-TowerEmergencyRequest
-TowerOperationRequestHandler
-TowerParkingRequestHandler
-ControlTower
-init
+operations, channels, flags, RequestSubmit, RunwayProcedures, RequestSubmitHandler, PlaneParking, PlaneParkingReplyHandler, RunwayProceduresHandler, Plane, TowerLandingRequest, TowerTakeoffRequest, TowerEmergencyRequest, TowerOperationRequestHandler, TowerParkingRequestHandler, ControlTower, init
 
 init (start simulation)
 
