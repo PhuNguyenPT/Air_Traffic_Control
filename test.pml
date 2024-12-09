@@ -1,4 +1,6 @@
 #define HANGAR_SIZE 3
+typedef Airplane {int id, timer; bool isLanding, isEmergency;};  // Airplane structure
+
 mtype:e_operation = {takeoff, landing, parking, runway, emergency_takeoff, emergency_landing, emergency, null};  // Operation type
 mtype:e_status = {plane_request, tower_reply, plane_waiting, lock, finish};  // Status type
 
@@ -212,12 +214,14 @@ proctype RunwayProceduresHandler(bool isLanding, isEmergency; int id, plane_time
         mtype:e_operation temp_op;
         // Wait for permission from the tower
         do
-        :: isLanding && isEmergency -> // If landing and emergency, wait for emergency landing permission
+        :: isLanding && isEmergency && emergency_occupied == false -> // If landing and emergency, wait for emergency landing permission
             atomic { 
                 c_reply_emergency?<temp_id, temp_op>;
                 if   
                 :: temp_id == id && temp_op == emergency_landing -> 
+                    emergency_occupied = true;
                     c_reply_emergency?id, emergency_landing; 
+                    emergency_occupied = false;
                     printf("Plane %d: Clear queue emergency landing reply\n", id); 
                     break;
 
@@ -227,12 +231,14 @@ proctype RunwayProceduresHandler(bool isLanding, isEmergency; int id, plane_time
                 fi;
                 skip;
             }
-        :: !isLanding && isEmergency -> // If takeoff and emergency, wait for emergency takeoff permission
+        :: !isLanding && isEmergency && emergency_occupied == false -> // If takeoff and emergency, wait for emergency takeoff permission
             atomic { 
                 c_reply_emergency?<temp_id, temp_op>; 
                 if
                 :: id == temp_id && temp_op == emergency_takeoff -> 
+                    emergency_occupied = true;
                     c_reply_emergency?id, emergency_takeoff; 
+                    emergency_occupied = false;
                     printf("Plane %d: Clear queue emergency takeoff reply\n", id); 
                     break;
 
@@ -328,30 +334,16 @@ proctype Plane(int id; bool isLanding, isEmergency) {
     run PlaneParkingReplyHandler(isParking, id, rep_parking);  // Handle parking request
 }
 
-inline TowerLandingRequest(plane_id, c_request, c_reply) {
+inline TowerRequest(plane_id, c_request, c_reply, op) {
     atomic {
-        c_request?plane_id;  // Clear the id in the channel
-        printf("Tower: Clear queue request for plane %d landing\n", plane_id);
-
-        c_reply!plane_id; // Grant landing
-        printf("Tower: Reply to plane %d landing\n", plane_id);
-
-        c_tower_reply_log!plane_id, landing; // Log the tower landing reply
-        c_tower_log!plane_id, landing, tower_reply; // Log the tower landing reply
-        printf("Tower: Log plane %d landing reply\n", plane_id);
-    }
-}
-
-inline TowerTakeoffRequest(plane_id, c_request, c_reply) {
-    atomic {
-        c_request?plane_id;  // Clear the id in the channel
+        c_request?plane_id, op;  // Clear the id in the channel
         printf("Tower: Clear queue request for plane %d takeoff\n", plane_id);
 
-        c_reply!plane_id; // Grant takeoff
+        c_reply!plane_id, op; // Grant takeoff
         printf("Tower: Reply to plane %d takeoff\n", plane_id);
 
-        c_tower_reply_log!plane_id, takeoff; // Log the tower takeoff reply
-        c_tower_log!plane_id, takeoff, tower_reply; // Log the tower takeoff reply
+        c_tower_reply_log!plane_id, op; // Log the tower takeoff reply
+        c_tower_log!plane_id, op, tower_reply; // Log the tower takeoff reply
         printf("Tower: Log plane %d takeoff reply\n", plane_id);
     }
 }
@@ -389,10 +381,10 @@ proctype TowerOperationRequestHandler(int plane_id; chan c_request; chan c_reply
         :: runway_occupied == false && (op != emergency_landing && op != emergency_takeoff) && len(c_request_emergency) <= 0 ->  // If runway is free, grant landing
             if
             :: op == landing -> 
-                TowerLandingRequest(plane_id, c_request, c_reply);
+                TowerRequest(plane_id, c_request, c_reply, landing);
                 skip;
             :: op == takeoff -> 
-                TowerTakeoffRequest(plane_id, c_request, c_reply);
+                TowerRequest(plane_id, c_request, c_reply, takeoff);
                 skip;
             fi;
             skip;                
@@ -478,24 +470,56 @@ proctype ControlTower() {
     od;
 }
 
+inline setAirplane(plane, plane_id, plane_isLanding, plane_isEmergency) {
+    atomic {
+        plane.id = plane_id;    
+        int plane_timer = -1;
+        select(plane_timer: 1..10);  // Set a timer to simulate runway usage time
+        plane.timer = plane_timer;
+        plane.isLanding = plane_isLanding;
+        plane.isEmergency = plane_isEmergency;
+    }
+}
 // Main initialization
 init {
     atomic {
         bool isLanding = true;
         bool isEmergency = true;
 
+        Airplane plane1, plane2, plane3, plane4, plane5, plane6, plane7, plane8, plane9, plane10;
+        setAirplane(plane1, 1, isLanding, isEmergency);
+        printf("Plane 1: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane1.id, plane1.timer, plane1.isLanding, plane1.isEmergency);
+        setAirplane(plane2, 2, !isLanding, !isEmergency);
+        printf("Plane 2: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane2.id, plane2.timer, plane2.isLanding, plane2.isEmergency);
+        setAirplane(plane3, 3, isLanding, !isEmergency);
+        printf("Plane 3: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane3.id, plane3.timer, plane3.isLanding, plane3.isEmergency);
+        setAirplane(plane4, 4, !isLanding, !isEmergency);
+        printf("Plane 4: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane4.id, plane4.timer, plane4.isLanding, plane4.isEmergency);
+        setAirplane(plane5, 5, isLanding, !isEmergency);    
+        printf("Plane 5: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane5.id, plane5.timer, plane5.isLanding, plane5.isEmergency);
+        setAirplane(plane6, 6, !isLanding, !isEmergency);
+        printf("Plane 6: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane6.id, plane6.timer, plane6.isLanding, plane6.isEmergency);
+        setAirplane(plane7, 7, isLanding, !isEmergency);
+        printf("Plane 7: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane7.id, plane7.timer, plane7.isLanding, plane7.isEmergency);
+        setAirplane(plane8, 8, !isLanding, !isEmergency);
+        printf("Plane 8: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane8.id, plane8.timer, plane8.isLanding, plane8.isEmergency);
+        setAirplane(plane9, 9, isLanding, !isEmergency);
+        printf("Plane 9: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane9.id, plane9.timer, plane9.isLanding, plane9.isEmergency);
+        setAirplane(plane10, 10, !isLanding, isEmergency);
+        printf("Plane 10: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane10.id, plane10.timer, plane10.isLanding, plane10.isEmergency);
+
         run ControlTower();  // Start the tower process
 
         // Launch 10 planes with random landing/takeoff requests
-        run Plane(1, isLanding, isEmergency);   // Plane 1 wants to land, emergency
-        run Plane(2, !isLanding, !isEmergency);  // Plane 2 wants to take off, not emergency
-        run Plane(3, isLanding, !isEmergency);   // Plane 3 wants to land, not emergency
-        run Plane(4, !isLanding, !isEmergency);  // Plane 4 wants to take off, not emergency
-        run Plane(5, isLanding, !isEmergency);   // Plane 5 wants to land, not emergency
-        run Plane(6, !isLanding, !isEmergency);  // Plane 6 wants to take off, not emergency
-        run Plane(7, isLanding, !isEmergency);   // Plane 7 wants to land, not emergency
-        run Plane(8, !isLanding, !isEmergency);  // Plane 8 wants to take off, not emergency
-        run Plane(9, isLanding, !isEmergency);   // Plane 9 wants to land, not emergency
-        run Plane(10, !isLanding, isEmergency); // Plane 10 wants to take off, emergency
+        run Plane(plane1.id, plane1.isLanding, plane1.isEmergency);   // Plane 1 wants to land, emergency
+        run Plane(plane2.id, plane2.isLanding, plane2.isEmergency);  // Plane 2 wants to take off, not emergency
+        run Plane(plane3.id, plane3.isLanding, plane3.isEmergency);   // Plane 3 wants to land, not emergency
+        run Plane(plane4.id, plane4.isLanding, plane4.isEmergency);  // Plane 4 wants to take off, not emergency
+        run Plane(plane5.id, plane5.isLanding, plane5.isEmergency);   // Plane 5 wants to land, not emergency
+        run Plane(plane6.id, plane6.isLanding, plane6.isEmergency);  // Plane 6 wants to take off, not emergency
+        run Plane(plane7.id, plane7.isLanding, plane7.isEmergency);   // Plane 7 wants to land, not emergency
+        run Plane(plane8.id, plane8.isLanding, plane8.isEmergency);  // Plane 8 wants to take off, not emergency
+        run Plane(plane9.id, plane9.isLanding, plane9.isEmergency);   // Plane 9 wants to land, not emergency
+        run Plane(plane10.id, plane10.isLanding, plane10.isEmergency); // Plane 10 wants to take off, emergency
     }
 }
