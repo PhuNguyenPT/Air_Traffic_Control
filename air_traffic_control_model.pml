@@ -506,39 +506,39 @@ init {
         bool isEmergency = true;
 
         Airplane plane1, plane2, plane3, plane4, plane5, plane6, plane7, plane8, plane9, plane10;
-        setAirplane(plane1, 1, isLanding, isEmergency);
+        setAirplane(plane1, 1, isLanding, isEmergency);     // Plane 1 wants to land, emergency
         printf("Plane 1: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane1.id, plane1.timer, plane1.isLanding, plane1.isEmergency);
-        setAirplane(plane2, 2, !isLanding, !isEmergency);
+        setAirplane(plane2, 2, !isLanding, !isEmergency);   // Plane 2 wants to take off, not emergency
         printf("Plane 2: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane2.id, plane2.timer, plane2.isLanding, plane2.isEmergency);
-        setAirplane(plane3, 3, isLanding, !isEmergency);
+        setAirplane(plane3, 3, isLanding, !isEmergency);    // Plane 3 wants to land, not emergency
         printf("Plane 3: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane3.id, plane3.timer, plane3.isLanding, plane3.isEmergency);
-        setAirplane(plane4, 4, !isLanding, !isEmergency);
+        setAirplane(plane4, 4, !isLanding, !isEmergency);   // Plane 4 wants to take off, not emergency
         printf("Plane 4: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane4.id, plane4.timer, plane4.isLanding, plane4.isEmergency);
-        setAirplane(plane5, 5, isLanding, !isEmergency);    
+        setAirplane(plane5, 5, isLanding, !isEmergency);    // Plane 5 wants to land, not emergency
         printf("Plane 5: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane5.id, plane5.timer, plane5.isLanding, plane5.isEmergency);
-        setAirplane(plane6, 6, !isLanding, !isEmergency);
+        setAirplane(plane6, 6, !isLanding, !isEmergency);   // Plane 6 wants to take off, not emergency
         printf("Plane 6: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane6.id, plane6.timer, plane6.isLanding, plane6.isEmergency);
-        setAirplane(plane7, 7, isLanding, !isEmergency);
+        setAirplane(plane7, 7, isLanding, !isEmergency);    // Plane 7 wants to land, not emergency
         printf("Plane 7: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane7.id, plane7.timer, plane7.isLanding, plane7.isEmergency);
-        setAirplane(plane8, 8, !isLanding, !isEmergency);
+        setAirplane(plane8, 8, !isLanding, !isEmergency);   // Plane 8 wants to take off, not emergency
         printf("Plane 8: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane8.id, plane8.timer, plane8.isLanding, plane8.isEmergency);
-        setAirplane(plane9, 9, isLanding, !isEmergency);
+        setAirplane(plane9, 9, isLanding, !isEmergency);    // Plane 9 wants to land, not emergency
         printf("Plane 9: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane9.id, plane9.timer, plane9.isLanding, plane9.isEmergency);
-        setAirplane(plane10, 10, !isLanding, isEmergency);
+        setAirplane(plane10, 10, !isLanding, isEmergency);  // Plane 10 wants to take off, emergency
         printf("Plane 10: id: %d, timer: %d, isLanding: %e, isEmergency: %e\n", plane10.id, plane10.timer, plane10.isLanding, plane10.isEmergency);
 
         run ControlTower();  // Start the tower process
 
         // Launch 10 planes with random landing/takeoff requests
-        run Plane(plane1.id, plane1.isLanding, plane1.isEmergency);   // Plane 1 wants to land, emergency
-        run Plane(plane2.id, plane2.isLanding, plane2.isEmergency);  // Plane 2 wants to take off, not emergency
-        run Plane(plane3.id, plane3.isLanding, plane3.isEmergency);   // Plane 3 wants to land, not emergency
-        run Plane(plane4.id, plane4.isLanding, plane4.isEmergency);  // Plane 4 wants to take off, not emergency
-        run Plane(plane5.id, plane5.isLanding, plane5.isEmergency);   // Plane 5 wants to land, not emergency
-        run Plane(plane6.id, plane6.isLanding, plane6.isEmergency);  // Plane 6 wants to take off, not emergency
-        run Plane(plane7.id, plane7.isLanding, plane7.isEmergency);   // Plane 7 wants to land, not emergency
-        run Plane(plane8.id, plane8.isLanding, plane8.isEmergency);  // Plane 8 wants to take off, not emergency
-        run Plane(plane9.id, plane9.isLanding, plane9.isEmergency);   // Plane 9 wants to land, not emergency
-        run Plane(plane10.id, plane10.isLanding, plane10.isEmergency); // Plane 10 wants to take off, emergency
+        run Plane(plane1.id, plane1.isLanding, plane1.isEmergency);
+        run Plane(plane2.id, plane2.isLanding, plane2.isEmergency);  
+        run Plane(plane3.id, plane3.isLanding, plane3.isEmergency);   
+        run Plane(plane4.id, plane4.isLanding, plane4.isEmergency);  
+        run Plane(plane5.id, plane5.isLanding, plane5.isEmergency);   
+        run Plane(plane6.id, plane6.isLanding, plane6.isEmergency);  
+        run Plane(plane7.id, plane7.isLanding, plane7.isEmergency);   
+        run Plane(plane8.id, plane8.isLanding, plane8.isEmergency);  
+        run Plane(plane9.id, plane9.isLanding, plane9.isEmergency);
+        run Plane(plane10.id, plane10.isLanding, plane10.isEmergency);
     }
 }
