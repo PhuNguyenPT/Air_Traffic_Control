@@ -41,17 +41,17 @@ bool parking_reply_channel_occupied = false; // 0 means free, 1 means occupied
 bool emergency_request_channel_occupied = false; // 0 means free, 1 means occupied
 bool emergency_reply_channel_occupied = false; // 0 means free, 1 means occupied
 
-bool plane_log_occupied = false; // 0 means free, 1 means occupied
-bool plane_request_log_occupied = false; // 0 means free, 1 means occupied
-bool plane_parking_log_occupied = false; // 0 means free, 1 means occupied 
-bool plane_runway_log_occupied =  false; // 0 means free, 1 means occupied
-bool plane_parking_request_log_occupied = false; // 0 means free, 1 means occupied 
+// bool plane_log_occupied = false; // 0 means free, 1 means occupied
+// bool plane_request_log_occupied = false; // 0 means free, 1 means occupied
+// bool plane_parking_log_occupied = false; // 0 means free, 1 means occupied 
+// bool plane_runway_log_occupied =  false; // 0 means free, 1 means occupied
+// bool plane_parking_request_log_occupied = false; // 0 means free, 1 means occupied 
 
-bool tower_log_occupied = false; // 0 means free, 1 means occupied
-bool tower_reply_log_occupied = false; // 0 means free, 1 means occupied 
-bool tower_parking_reply_lo_occupied = false; // 0 means free, 1 means occupied
+// bool tower_log_occupied = false; // 0 means free, 1 means occupied
+// bool tower_reply_log_occupied = false; // 0 means free, 1 means occupied 
+// bool tower_parking_reply_lo_occupied = false; // 0 means free, 1 means occupied
 
-bool emergency_log_occupied = false; // 0 means free, 1 means occupied
+// bool emergency_log_occupied = false; // 0 means free, 1 means occupied
 
 inline RequestSubmit(id, op) {
     // Plane requests landing or takeoff
