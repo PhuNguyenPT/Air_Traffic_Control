@@ -402,15 +402,13 @@ inline RunwayProceduresHandler(isLanding, isEmergency, id, plane_timer) {
 }
 // Plane process
 proctype Plane(int id, timer; bool isLanding, isEmergency) {
-    int req_landing, req_takeoff, req_parking, rep_landing, rep_takeoff, rep_parking;
-    int plane_timer = timer;
     bool isParking = isLanding;  // Not parking by default
 
     printf("Plane %d: Start RequestSubmmitHandler\n", id);
     RequestSubmitHandler(isLanding, isEmergency, id);  // Handle request submission
     
     printf("Plane %d: Start RunwayProceduresHandler\n", id);
-    RunwayProceduresHandler(isLanding, isEmergency, id, plane_timer);  // Handle runway request
+    RunwayProceduresHandler(isLanding, isEmergency, id, timer);  // Handle runway request
     
     printf("Plane %d: Start PlaneParking\n", id);
     PlaneParkingReplyHandler(isParking, id);  // Handle parking request
