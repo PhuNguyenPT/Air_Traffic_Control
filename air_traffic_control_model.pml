@@ -1,5 +1,8 @@
 #define HANGAR_SIZE 3
 #define AIRPLANE_COUNT 10
+#define EMERGENCY_COUNT 2
+#define LANDING_COUNT 5
+#define TAKEOFF_COUNT 5
 typedef Airplane {int id, timer; bool isLanding, isEmergency;};  // Airplane structure
 
 Airplane plane1, plane2, plane3, plane4, plane5, plane6, plane7, plane8, plane9, plane10;
@@ -601,6 +604,11 @@ proctype ControlTower() {
         plane_id = -1;
         temp_op = null;
         skip;
+    :: atomic { (len(c_request_emergency) == len(c_request_operation) == len(c_request_parking) <= 0) &&
+    len(c_tower_reply_log) == AIRPLANE_COUNT && 
+    len(c_tower_parking_reply_log) == LANDING_COUNT-> 
+        end_control_tower: printf("Control Tower: Finish processing..."); break; 
+    }
     od;
 }
 
