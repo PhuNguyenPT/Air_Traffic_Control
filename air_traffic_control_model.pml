@@ -44,18 +44,6 @@ bool parking_reply_channel_occupied = false; // 0 means free, 1 means occupied
 bool emergency_request_channel_occupied = false; // 0 means free, 1 means occupied
 bool emergency_reply_channel_occupied = false; // 0 means free, 1 means occupied
 
-// bool plane_log_occupied = false; // 0 means free, 1 means occupied
-// bool plane_request_log_occupied = false; // 0 means free, 1 means occupied
-// bool plane_parking_log_occupied = false; // 0 means free, 1 means occupied 
-// bool plane_runway_log_occupied =  false; // 0 means free, 1 means occupied
-// bool plane_parking_request_log_occupied = false; // 0 means free, 1 means occupied 
-
-// bool tower_log_occupied = false; // 0 means free, 1 means occupied
-// bool tower_reply_log_occupied = false; // 0 means free, 1 means occupied 
-// bool tower_parking_reply_lo_occupied = false; // 0 means free, 1 means occupied
-
-// bool emergency_log_occupied = false; // 0 means free, 1 means occupied
-
 inline RequestSubmit(id, op) {
     // Plane requests landing or takeoff
     if
@@ -609,11 +597,10 @@ proctype ControlTower() {
         parking_request_channel_occupied = true;
     } 
         TowerParkingRequestHandler(plane_id); // Handle parking request        
-        skip;
         
         plane_id = -1;
         temp_op = null;
-        skip;        
+        skip;
     od;
 }
 
@@ -668,13 +655,3 @@ init {
         run Plane(plane10.id, plane10.timer, plane10.isLanding, plane10.isEmergency);
     }
 }
-
-// never {	/* <>[]p */
-// 	do
-// 	:: true	/* after an arbitrarily long prefix */
-// 	:: p -> break             /* p becomes true */
-// 	od;
-// accept:	do
-// 	:: p      /* and remains true forever after */
-// 	od
-// }
