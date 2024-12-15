@@ -408,9 +408,22 @@ proctype Plane(int id, timer; bool isLanding, isEmergency) {
     PlaneParkingReplyHandler(isParking, id);  // Handle parking request
 
     end_plane:
-        isLanding = !isLanding;  // Toggle landing/takeoff
-        isEmergency = !isEmergency;  // Toggle emergency/non-emergency
-        printf("Plane %d: %d - isLanding, %d - isEmergency\n", id, isLanding, isEmergency);
+        if
+        :: isLanding && isEmergency -> // Emergency landing
+            isLanding = !isLanding;  // Switch to takeoff
+            isEmergency = !isEmergency;  // Switch to non-emergency
+            printf("Plane %d: Switch to Normal Takeoff after Emergency Landing\n", id, isLanding, isEmergency);
+        :: !isLanding && isEmergency -> // Emergency takeoff
+            isLanding = !isLanding;  // Switch to landing
+            isEmergency = !isEmergency;  // Switch to non-emergency
+            printf("Plane %d: Switch to Normal Landing after Emergency Takeoff\n", id, isLanding, isEmergency);
+        :: isLanding && !isEmergency -> // Normal landing
+            isLanding = !isLanding;  // Switch to takeoff
+            printf("Plane %d: Switch to Normal Takeoff after Normal Landing\n", id, isLanding);
+        :: !isLanding && !isEmergency -> // Normal takeoff
+            isLanding = !isLanding;  // Switch to landing
+            printf("Plane %d: Switch to Normal Landing after Normal Takeoff\n", id, isLanding); 
+        fi;
 
         printf("Plane %d: Finish processing...\n", id);
 }
@@ -628,7 +641,7 @@ proctype ControlTower() {
     :: atomic { (len(c_request_emergency) == len(c_request_operation) == len(c_request_parking) <= 0) &&
     len(c_tower_reply_log) == AIRPLANE_COUNT && 
     len(c_tower_parking_reply_log) == LANDING_COUNT-> 
-        end_control_tower: printf("Control Tower: Finish processing..."); break; 
+        end_control_tower: printf("Control Tower: Finish processing...\n"); break; 
     }
     od;
 }
