@@ -1,0 +1,35 @@
+digraph p_PlaneParkingReplyHandler {
+size="8,10";
+  GT [shape=box,style=dotted,label="PlaneParkingReplyHandler"];
+  GT -> S37;
+	S37 -> S2  [color=black,style=dashed,label="(isParking)"];
+	S37 -> S7  [color=black,style=dashed,label="(!(isParking))"];
+	S2 -> S3  [color=black,style=dashed,label="c_reply_parking??id"];
+	S3 -> S4  [color=black,style=dashed,label="rep_parking = id"];
+	S4 -> S5  [color=black,style=dashed,label="printf('Plane %d: Clear queue parking reply of number %d ',id,rep_parking)"];
+	S5 -> S34  [color=black,style=dashed,label="(1)"];
+	S34 -> S32  [color=black,style=dashed,label="(((rep_parking==id)&&(!(parking_occupied)==1)))"];
+	S32 -> S12  [color=black,style=dashed,label="((len(hangar)<3))"];
+	S32 -> S21  [color=black,style=dashed,label="((len(hangar)>=3))"];
+	S12 -> S13  [color=black,style=dashed,label="parking_occupied = 1"];
+	S13 -> S14  [color=black,style=dashed,label="c_plane_log!rep_parking,6,2"];
+	S14 -> S15  [color=black,style=dashed,label="printf('Plane %d: Take parking lock ',rep_parking)"];
+	S15 -> S16  [color=black,style=dashed,label="printf('Plane %d: Hangar size: %d ',rep_parking,len(hangar))"];
+	S16 -> S17  [color=black,style=dashed,label="hangar!rep_parking"];
+	S17 -> S18  [color=black,style=dashed,label="c_plane_parking_log!rep_parking,6,5"];
+	S18 -> S19  [color=black,style=dashed,label="printf('Plane %d: Has parked. Increase hangar size: %d ',rep_parking,len(hangar))"];
+	S19 -> S33  [color=black,style=dashed,label="parking_occupied = 0"];
+	S33 -> S36  [color=black,style=dashed,label="goto :b0"];
+	S36 -> S38  [color=black,style=bold,label="break"];
+	S38 -> S0  [color=black,style=solid,label="-end-"];
+  S38 [color=blue,style=bold,shape=box];
+	S21 -> S22  [color=black,style=dashed,label="parking_occupied = 1"];
+	S22 -> S23  [color=black,style=dashed,label="c_plane_log!rep_parking,6,2"];
+	S23 -> S24  [color=black,style=dashed,label="printf('Hangar is full, plane %d is waiting ',rep_parking)"];
+	S24 -> S25  [color=black,style=dashed,label="c_waiting_parking!rep_parking"];
+	S25 -> S26  [color=black,style=dashed,label="printf('Plane %d: Send parking request to waiting list ',rep_parking)"];
+	S26 -> S27  [color=black,style=dashed,label="c_plane_log!rep_parking,6,3"];
+	S27 -> S28  [color=black,style=dashed,label="c_plane_parking_log!rep_parking,6,3"];
+	S28 -> S33  [color=black,style=dashed,label="parking_occupied = 0"];
+	S7 -> S34  [color=black,style=dashed,label="(1)"];
+}

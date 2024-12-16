@@ -247,6 +247,7 @@ inline PlaneParking(id, status) {
     :: status == plane_accept ->                // If hangar is not full, park
         atomic {
             hangar??id, reserved, hangar_slot;  // Get reserve parking slot
+            printf("Plane %d: Get parking reservation slot %d\n", id, hangar_slot);
             hangar!id, finish, hangar_slot;     // Finish parking
 
             c_plane_log!id, parking, finish;    // Log the parking finish
@@ -553,8 +554,8 @@ inline TowerParkingRequestHandler(plane_id) {
     ::  atomic { len(hangar) < HANGAR_SIZE && !parking_reply_channel_occupied && !parking_occupied ->
         parking_reply_channel_occupied = true; parking_occupied = true;
     }
-        hangar!plane_id, reserved, len(hangar);  // Grant parking slot
         printf("Tower: Reserve parking slot %d for Plane %d\n", len(hangar), plane_id);
+        hangar!plane_id, reserved, len(hangar);  // Grant parking slot
         parking_occupied = false;
 
         atomic {
